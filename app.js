@@ -3,6 +3,7 @@ const KEYS = {
   sales: "fm_world_sales_v2",
   users: "fm_world_users_v2",
   token: "fm_world_jwt_token",
+  warehouse: "fm_world_active_warehouse",
 };
 
 const permissions = {
@@ -47,6 +48,7 @@ let users = load(KEYS.users, seedUsers);
 let products = load(KEYS.products, seedProducts);
 let sales = load(KEYS.sales, []);
 let currentUser = null;
+let activeWarehouse = localStorage.getItem(KEYS.warehouse) || "showroom";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -131,6 +133,21 @@ function warehouseStock(product, warehouse) {
   return warehouse === "office" ? product.officeStock : product.showroomStock;
 }
 
+function activeWarehouseStock(product) {
+  return warehouseStock(product, activeWarehouse);
+}
+
+function activeWarehouseField() {
+  return activeWarehouse === "office" ? "officeStock" : "showroomStock";
+}
+
+function setActiveWarehouse(warehouse) {
+  activeWarehouse = warehouse;
+  localStorage.setItem(KEYS.warehouse, warehouse);
+  $("#activeWarehouse").value = warehouse;
+  renderAll();
+}
+
 function showToast(message) {
   $("#toast").textContent = message;
   $("#toast").classList.add("show");
@@ -160,6 +177,7 @@ function startApp(user) {
   $("#loginScreen").classList.add("hidden");
   $("#appShell").classList.remove("hidden");
   $("#currentUserLabel").textContent = `${user.name} · ${user.role}`;
+  $("#activeWarehouse").value = activeWarehouse;
   applyAccess();
   showPage(user.role === "Seller" ? "sale" : "dashboard");
   renderAll();
@@ -198,14 +216,15 @@ function renderAll() {
 }
 
 function renderDashboard() {
-  const todaySales = sales.filter((sale) => sale.soldAt.slice(0, 10) === todayIso());
-  const lowStock = products.filter((product) => totalStock(product) <= 3);
+  const todaySales = sales.filter((sale) => sale.soldAt.slice(0, 10) === todayIso() && (sale.warehouse || "showroom") === activeWarehouse);
+  const lowStock = products.filter((product) => activeWarehouseStock(product) <= 3);
 
   $("#todayRevenue").textContent = money.format(sum(todaySales, "total"));
   $("#todaySalesCount").textContent = `${todaySales.length} продаж`;
   $("#totalProducts").textContent = products.length;
-  $("#showroomStock").textContent = products.reduce((total, product) => total + product.showroomStock, 0);
-  $("#officeStock").textContent = products.reduce((total, product) => total + product.officeStock, 0);
+  $("#activeStockLabel").textContent = `На складе ${warehouseLabel(activeWarehouse)}`;
+  $("#activeStock").textContent = products.reduce((total, product) => total + activeWarehouseStock(product), 0);
+  $("#activeWarehouseLabel").textContent = warehouseLabel(activeWarehouse);
   $("#todaySold").textContent = todaySales.reduce((total, sale) => total + sale.quantity, 0);
   $("#lowStockCount").textContent = lowStock.length;
 
@@ -217,21 +236,19 @@ function renderDashboard() {
               <td>${product.id}</td>
               <td><span class="product-name">${escapeHtml(product.name)}</span></td>
               <td>${escapeHtml(product.brand)}</td>
-              <td class="${product.showroomStock <= 3 ? "low-stock" : ""}">${product.showroomStock}</td>
-              <td class="${product.officeStock <= 3 ? "low-stock" : ""}">${product.officeStock}</td>
-              <td class="low-stock">${totalStock(product)}</td>
+              <td class="low-stock">${activeWarehouseStock(product)}</td>
               <td>${money.format(product.salePrice)}</td>
             </tr>
           `,
         )
         .join("")
-    : emptyRow(7, "Товаров с низким остатком нет");
+    : emptyRow(5, "Товаров с низким остатком нет");
 }
 
 function renderProducts() {
   $("#productsTable").innerHTML = products.length
     ? products.map(productRow).join("")
-    : emptyRow(can("manageProducts") ? 12 : 11, "Пока нет товаров");
+    : emptyRow(can("manageProducts") ? 10 : 9, "Пока нет товаров");
 }
 
 function productRow(product) {
@@ -252,9 +269,7 @@ function productRow(product) {
       <td>${product.volume} мл</td>
       <td>${money.format(product.purchasePrice)}</td>
       <td>${money.format(product.salePrice)}</td>
-      <td class="${product.showroomStock <= 3 ? "low-stock" : ""}">${product.showroomStock}</td>
-      <td class="${product.officeStock <= 3 ? "low-stock" : ""}">${product.officeStock}</td>
-      <td class="${totalStock(product) <= 3 ? "low-stock" : ""}">${totalStock(product)}</td>
+      <td class="${activeWarehouseStock(product) <= 3 ? "low-stock" : ""}">${activeWarehouseStock(product)}</td>
       <td>${formatDateTime(product.addedAt)}</td>
       ${actions}
     </tr>
@@ -262,12 +277,12 @@ function productRow(product) {
 }
 
 function renderSaleForm() {
-  const available = products.filter((product) => totalStock(product) > 0);
+  const available = products.filter((product) => activeWarehouseStock(product) > 0);
   $("#saleProduct").innerHTML = available.length
     ? available
         .map(
           (product) =>
-            `<option value="${product.id}">${escapeHtml(product.name)} · Showroom ${product.showroomStock} / Office ${product.officeStock}</option>`,
+            `<option value="${product.id}">${escapeHtml(product.name)} · ${warehouseLabel(activeWarehouse)} ${activeWarehouseStock(product)} шт.</option>`,
         )
         .join("")
     : `<option value="">Нет товара на складе</option>`;
@@ -355,27 +370,23 @@ function renderStock() {
     ? products
         .map((product) => {
           const controls = can("manageStock")
-            ? `
-              <td><button class="mini-btn" type="button" data-stock-down="showroom:${product.id}">-</button><button class="mini-btn add" type="button" data-stock-up="showroom:${product.id}">+</button></td>
-              <td><button class="mini-btn" type="button" data-stock-down="office:${product.id}">-</button><button class="mini-btn add" type="button" data-stock-up="office:${product.id}">+</button></td>
-            `
+            ? `<td><button class="mini-btn" type="button" data-stock-down="${product.id}">-</button><button class="mini-btn add" type="button" data-stock-up="${product.id}">+</button></td>`
             : "";
           return `
             <tr>
               <td><span class="product-name">${escapeHtml(product.name)}</span></td>
               <td>${escapeHtml(product.brand)}</td>
               <td>${product.volume} мл</td>
-              <td class="${product.showroomStock <= 3 ? "low-stock" : ""}">${product.showroomStock}</td>
-              <td class="${product.officeStock <= 3 ? "low-stock" : ""}">${product.officeStock}</td>
-              <td class="${totalStock(product) <= 3 ? "low-stock" : ""}">${totalStock(product)}</td>
+              <td>${warehouseLabel(activeWarehouse)}</td>
+              <td class="${activeWarehouseStock(product) <= 3 ? "low-stock" : ""}">${activeWarehouseStock(product)}</td>
               <td>${money.format(product.salePrice)}</td>
-              <td>${money.format(product.salePrice * totalStock(product))}</td>
+              <td>${money.format(product.salePrice * activeWarehouseStock(product))}</td>
               ${controls}
             </tr>
           `;
         })
         .join("")
-    : emptyRow(can("manageStock") ? 10 : 8, "Остатков нет");
+    : emptyRow(can("manageStock") ? 8 : 7, "Остатков нет");
 }
 
 function renderUsers() {
@@ -479,6 +490,11 @@ $("#nav").addEventListener("click", (event) => {
   if (button) showPage(button.dataset.page);
 });
 
+$("#activeWarehouse").addEventListener("change", (event) => {
+  setActiveWarehouse(event.target.value);
+  showToast(`Выбран склад ${warehouseLabel(activeWarehouse)}`);
+});
+
 document.body.addEventListener("click", (event) => {
   const quick = event.target.closest(".quick-link");
   if (quick) showPage(quick.dataset.page);
@@ -496,6 +512,8 @@ $("#productForm").addEventListener("submit", (event) => {
   if (!can("manageProducts")) return;
 
   const id = $("#productId").value || `P-${String(Date.now()).slice(-6)}`;
+  const existingProduct = products.find((item) => item.id === id);
+  const productStock = Number($("#productWarehouseStock").value);
   const product = {
     id,
     name: $("#productName").value.trim(),
@@ -504,9 +522,9 @@ $("#productForm").addEventListener("submit", (event) => {
     volume: Number($("#productVolume").value),
     purchasePrice: Number($("#productPurchasePrice").value),
     salePrice: Number($("#productSalePrice").value),
-    showroomStock: Number($("#productShowroomStock").value),
-    officeStock: Number($("#productOfficeStock").value),
-    addedAt: products.find((item) => item.id === id)?.addedAt || new Date().toISOString(),
+    showroomStock: activeWarehouse === "showroom" ? productStock : Number(existingProduct?.showroomStock || 0),
+    officeStock: activeWarehouse === "office" ? productStock : Number(existingProduct?.officeStock || 0),
+    addedAt: existingProduct?.addedAt || new Date().toISOString(),
   };
 
   products = products.some((item) => item.id === id)
@@ -531,8 +549,7 @@ $("#productsTable").addEventListener("click", (event) => {
     $("#productVolume").value = product.volume;
     $("#productPurchasePrice").value = product.purchasePrice;
     $("#productSalePrice").value = product.salePrice;
-    $("#productShowroomStock").value = product.showroomStock;
-    $("#productOfficeStock").value = product.officeStock;
+    $("#productWarehouseStock").value = activeWarehouseStock(product);
     $("#productForm").classList.remove("hidden");
   }
 
@@ -545,13 +562,12 @@ $("#productsTable").addEventListener("click", (event) => {
 
 $("#saleProduct").addEventListener("change", updateSaleTotal);
 $("#saleQuantity").addEventListener("input", updateSaleTotal);
-$("#saleWarehouse").addEventListener("change", updateSaleTotal);
 
 $("#saleForm").addEventListener("submit", (event) => {
   event.preventDefault();
   const product = products.find((item) => item.id === $("#saleProduct").value);
   const quantity = Number($("#saleQuantity").value);
-  const warehouse = $("#saleWarehouse").value;
+  const warehouse = activeWarehouse;
 
   if (!product) {
     showToast("Выберите товар");
@@ -613,32 +629,31 @@ $("#downloadSalesReportBtn").addEventListener("click", () => {
 
 $("#downloadStockReportBtn").addEventListener("click", () => {
   const rows = [
-    ["Название товара", "Бренд", "Объем", "Showroom", "Office", "Итого", "Цена продажи", "Общая стоимость остатков"],
+    ["Склад", "Название товара", "Бренд", "Объем", "Количество", "Цена продажи", "Общая стоимость остатков"],
     ...products.map((product) => [
+      warehouseLabel(activeWarehouse),
       product.name,
       product.brand,
       `${product.volume} мл`,
-      product.showroomStock,
-      product.officeStock,
-      totalStock(product),
+      activeWarehouseStock(product),
       product.salePrice,
-      product.salePrice * totalStock(product),
+      product.salePrice * activeWarehouseStock(product),
     ]),
   ];
-  exportExcel(`fm-world-stock-${todayIso()}.xls`, rows);
+  exportExcel(`fm-world-${activeWarehouse}-stock-${todayIso()}.xls`, rows);
 });
 
 $("#stockTable").addEventListener("click", (event) => {
   if (!can("manageStock")) return;
   const upValue = event.target.dataset.stockUp;
   const downValue = event.target.dataset.stockDown;
-  const [warehouse, productId] = (upValue || downValue || "").split(":");
+  const productId = upValue || downValue;
   const product = products.find((item) => item.id === productId);
   if (!product) return;
 
-  const field = warehouse === "office" ? "officeStock" : "showroomStock";
+  const field = activeWarehouseField();
   product[field] = upValue ? product[field] + 1 : Math.max(0, product[field] - 1);
-  showToast(`Остаток ${warehouseLabel(warehouse)} обновлен`);
+  showToast(`Остаток ${warehouseLabel(activeWarehouse)} обновлен`);
   renderAll();
 });
 

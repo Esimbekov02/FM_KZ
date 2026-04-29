@@ -42,6 +42,14 @@
           </div>
         </div>
 
+        <label class="warehouse-picker">
+          Рабочий склад
+          <select id="activeWarehouse">
+            <option value="showroom">Showroom</option>
+            <option value="office">Office</option>
+          </select>
+        </label>
+
         <nav id="nav" class="nav">
           <button class="nav-link active" type="button" data-page="dashboard">Dashboard</button>
           <button class="nav-link" type="button" data-page="products">Товары</button>
@@ -73,10 +81,10 @@
 
           <section class="stats-grid" aria-label="Сводка">
             <article class="stat"><span>Всего товаров</span><strong id="totalProducts">0</strong></article>
-            <article class="stat"><span>Showroom</span><strong id="showroomStock">0</strong></article>
-            <article class="stat"><span>Office</span><strong id="officeStock">0</strong></article>
+            <article class="stat"><span id="activeStockLabel">На складе</span><strong id="activeStock">0</strong></article>
             <article class="stat"><span>Продано сегодня</span><strong id="todaySold">0</strong></article>
             <article class="stat"><span>Низкий остаток</span><strong id="lowStockCount">0</strong></article>
+            <article class="stat"><span>Склад</span><strong id="activeWarehouseLabel">Showroom</strong></article>
           </section>
 
           <section class="panel">
@@ -89,7 +97,7 @@
             <div class="table-wrap">
               <table>
                 <thead>
-                  <tr><th>ID</th><th>Товар</th><th>Бренд</th><th>Showroom</th><th>Office</th><th>Итого</th><th>Цена</th></tr>
+                  <tr><th>ID</th><th>Товар</th><th>Бренд</th><th>Остаток</th><th>Цена</th></tr>
                 </thead>
                 <tbody id="lowStockTable"></tbody>
               </table>
@@ -121,8 +129,7 @@
             <label>Объем, мл<input id="productVolume" type="number" min="1" step="1" required /></label>
             <label>Закупочная цена<input id="productPurchasePrice" type="number" min="0" step="0.01" required /></label>
             <label>Цена продажи<input id="productSalePrice" type="number" min="0" step="0.01" required /></label>
-            <label>Showroom<input id="productShowroomStock" type="number" min="0" step="1" required /></label>
-            <label>Office<input id="productOfficeStock" type="number" min="0" step="1" required /></label>
+            <label>Количество в выбранном складе<input id="productWarehouseStock" type="number" min="0" step="1" required /></label>
             <div class="form-actions">
               <button class="primary-btn" type="submit">Сохранить</button>
               <button id="cancelProductFormBtn" class="ghost-btn" type="button">Отмена</button>
@@ -135,7 +142,7 @@
                 <thead>
                   <tr>
                     <th>ID</th><th>Название</th><th>Бренд</th><th>Категория</th><th>Объем</th>
-                    <th>Закупка</th><th>Продажа</th><th>Showroom</th><th>Office</th><th>Итого</th><th>Дата</th><th class="admin-only">Действия</th>
+                    <th>Закупка</th><th>Продажа</th><th>Остаток</th><th>Дата</th><th class="admin-only">Действия</th>
                   </tr>
                 </thead>
                 <tbody id="productsTable"></tbody>
@@ -160,13 +167,6 @@
             <label>
               Количество
               <input id="saleQuantity" type="number" min="1" step="1" value="1" required />
-            </label>
-            <label>
-              Склад
-              <select id="saleWarehouse" required>
-                <option value="showroom">Showroom</option>
-                <option value="office">Office</option>
-              </select>
             </label>
             <div class="sale-total">
               <span>Итоговая сумма</span>
@@ -240,7 +240,7 @@
             <div class="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Название</th><th>Бренд</th><th>Объем</th><th>Showroom</th><th>Office</th><th>Итого</th><th>Цена продажи</th><th>Стоимость остатков</th><th class="admin-only">Showroom</th><th class="admin-only">Office</th></tr>
+                  <tr><th>Название</th><th>Бренд</th><th>Объем</th><th>Склад</th><th>Количество</th><th>Цена продажи</th><th>Стоимость остатков</th><th class="admin-only">Изменить</th></tr>
                 </thead>
                 <tbody id="stockTable"></tbody>
               </table>
