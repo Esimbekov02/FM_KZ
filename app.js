@@ -125,7 +125,7 @@ function totalStock(product) {
 }
 
 function warehouseLabel(value) {
-  return value === "office" ? "Office" : "Showroom";
+  return value === "office" ? "Office" : "Островок";
 }
 
 function warehouseStock(product, warehouse) {
