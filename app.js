@@ -37,11 +37,11 @@ const seedUsers = [
 ];
 
 const seedProducts = [
-  productSeed("PR-900", "Pure Royal 900", "FM World", "Женский аромат", 50, 20, 38, 8, 4),
-  productSeed("FM-199", "Federico Mahora 199", "FM World", "Мужской аромат", 50, 18, 34, 5, 3),
-  productSeed("UT-RBY", "Utique Ruby", "Utique", "Унисекс", 100, 34, 55, 3, 2),
-  productSeed("FM-366", "Federico Mahora 366", "FM World", "Женский аромат", 50, 17, 32, 1, 1),
-  productSeed("UT-AMB", "Utique Ambergris", "Utique", "Мужской аромат", 100, 39, 64, 1, 0),
+  productSeed("PR-900", "Pure Royal 900", "FM World", "Женский аромат", 50, 18000, 8, 4),
+  productSeed("FM-199", "Federico Mahora 199", "FM World", "Мужской аромат", 50, 16500, 5, 3),
+  productSeed("UT-RBY", "Utique Ruby", "Utique", "Унисекс", 100, 26000, 3, 2),
+  productSeed("FM-366", "Federico Mahora 366", "FM World", "Женский аромат", 50, 15500, 1, 1),
+  productSeed("UT-AMB", "Utique Ambergris", "Utique", "Мужской аромат", 100, 31000, 1, 0),
 ];
 
 let users = load(KEYS.users, seedUsers);
@@ -55,18 +55,17 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 const money = new Intl.NumberFormat("ru-RU", {
   style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 2,
+  currency: "KZT",
+  maximumFractionDigits: 0,
 });
 
-function productSeed(id, name, brand, category, volume, purchasePrice, salePrice, showroomStock, officeStock) {
+function productSeed(id, name, brand, category, volume, salePrice, showroomStock, officeStock) {
   return {
     id,
     name,
     brand,
     category,
     volume,
-    purchasePrice,
     salePrice,
     showroomStock,
     officeStock,
@@ -267,7 +266,6 @@ function productRow(product) {
       <td>${escapeHtml(product.brand)}</td>
       <td>${escapeHtml(product.category)}</td>
       <td>${product.volume} мл</td>
-      <td>${money.format(product.purchasePrice)}</td>
       <td>${money.format(product.salePrice)}</td>
       <td class="${activeWarehouseStock(product) <= 3 ? "low-stock" : ""}">${activeWarehouseStock(product)}</td>
       <td>${formatDateTime(product.addedAt)}</td>
@@ -520,7 +518,6 @@ $("#productForm").addEventListener("submit", (event) => {
     brand: $("#productBrand").value.trim(),
     category: $("#productCategory").value.trim(),
     volume: Number($("#productVolume").value),
-    purchasePrice: Number($("#productPurchasePrice").value),
     salePrice: Number($("#productSalePrice").value),
     showroomStock: activeWarehouse === "showroom" ? productStock : Number(existingProduct?.showroomStock || 0),
     officeStock: activeWarehouse === "office" ? productStock : Number(existingProduct?.officeStock || 0),
@@ -547,7 +544,6 @@ $("#productsTable").addEventListener("click", (event) => {
     $("#productBrand").value = product.brand;
     $("#productCategory").value = product.category;
     $("#productVolume").value = product.volume;
-    $("#productPurchasePrice").value = product.purchasePrice;
     $("#productSalePrice").value = product.salePrice;
     $("#productWarehouseStock").value = activeWarehouseStock(product);
     $("#productForm").classList.remove("hidden");
