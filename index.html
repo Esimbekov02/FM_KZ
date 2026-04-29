@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FM_World | Учет товаров и продаж</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="loginScreen" class="login-screen">
+      <form id="loginForm" class="login-card">
+        <div class="brand login-brand">
+          <span class="brand-mark">FM</span>
+          <div>
+            <strong>FM_World</strong>
+            <span>Система учета парфюмерии</span>
+          </div>
+        </div>
+        <h1>Авторизация</h1>
+        <label>
+          Логин
+          <input id="loginInput" type="text" autocomplete="username" placeholder="admin" required />
+        </label>
+        <label>
+          Пароль
+          <input id="passwordInput" type="password" autocomplete="current-password" placeholder="admin123" required />
+        </label>
+        <button class="primary-btn" type="submit">Войти</button>
+        <p class="login-help">
+          Admin: admin/admin123 · Supervisor: supervisor/super123 · Seller: seller/seller123
+        </p>
+      </form>
+    </div>
+
+    <div id="appShell" class="app-shell hidden">
+      <aside class="sidebar" aria-label="Навигация">
+        <div class="brand">
+          <span class="brand-mark">FM</span>
+          <div>
+            <strong>FM_World</strong>
+            <span id="currentUserLabel">Пользователь</span>
+          </div>
+        </div>
+
+        <nav id="nav" class="nav">
+          <button class="nav-link active" type="button" data-page="dashboard">Dashboard</button>
+          <button class="nav-link" type="button" data-page="products">Товары</button>
+          <button class="nav-link" type="button" data-page="sale">Продажа</button>
+          <button class="nav-link" type="button" data-page="reports" data-permission="reports">Отчеты</button>
+          <button class="nav-link" type="button" data-page="stock">Остатки</button>
+          <button class="nav-link" type="button" data-page="users" data-permission="users">Пользователи</button>
+        </nav>
+
+        <button id="logoutBtn" class="ghost-btn logout-btn" type="button">Выйти</button>
+      </aside>
+
+      <main class="main">
+        <section id="dashboardPage" class="page active">
+          <div class="hero">
+            <div>
+              <p class="eyebrow">Склад и продажи</p>
+              <h1>Контроль FM_World</h1>
+              <p class="hero-copy">
+                Учет товаров, остатков, продаж, продавцов и отчетов в одном рабочем интерфейсе.
+              </p>
+            </div>
+            <div class="hero-panel">
+              <span>Продажи сегодня</span>
+              <strong id="todayRevenue">0</strong>
+              <small id="todaySalesCount">0 продаж</small>
+            </div>
+          </div>
+
+          <section class="stats-grid" aria-label="Сводка">
+            <article class="stat"><span>Всего товаров</span><strong id="totalProducts">0</strong></article>
+            <article class="stat"><span>На складе</span><strong id="totalStock">0</strong></article>
+            <article class="stat"><span>Продано сегодня</span><strong id="todaySold">0</strong></article>
+            <article class="stat"><span>Низкий остаток</span><strong id="lowStockCount">0</strong></article>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Контроль</p>
+                <h2>Товары с низким остатком</h2>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>ID</th><th>Товар</th><th>Бренд</th><th>Остаток</th><th>Цена</th></tr>
+                </thead>
+                <tbody id="lowStockTable"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="quick-grid">
+            <button class="quick-link" type="button" data-page="products">Товары</button>
+            <button class="quick-link" type="button" data-page="sale">Новая продажа</button>
+            <button class="quick-link" type="button" data-page="stock">Остатки</button>
+            <button class="quick-link" type="button" data-page="reports" data-permission="reports">Отчеты</button>
+          </section>
+        </section>
+
+        <section id="productsPage" class="page">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">Каталог</p>
+              <h1>Товары</h1>
+            </div>
+            <button id="openProductFormBtn" class="primary-btn admin-only" type="button">Добавить товар</button>
+          </div>
+
+          <form id="productForm" class="panel form-grid hidden">
+            <input id="productId" type="hidden" />
+            <label>Название товара<input id="productName" type="text" required /></label>
+            <label>Бренд<input id="productBrand" type="text" required /></label>
+            <label>Категория<input id="productCategory" type="text" required /></label>
+            <label>Объем, мл<input id="productVolume" type="number" min="1" step="1" required /></label>
+            <label>Закупочная цена<input id="productPurchasePrice" type="number" min="0" step="0.01" required /></label>
+            <label>Цена продажи<input id="productSalePrice" type="number" min="0" step="0.01" required /></label>
+            <label>Количество на складе<input id="productStock" type="number" min="0" step="1" required /></label>
+            <div class="form-actions">
+              <button class="primary-btn" type="submit">Сохранить</button>
+              <button id="cancelProductFormBtn" class="ghost-btn" type="button">Отмена</button>
+            </div>
+          </form>
+
+          <div class="panel">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Название</th><th>Бренд</th><th>Категория</th><th>Объем</th>
+                    <th>Закупка</th><th>Продажа</th><th>Остаток</th><th>Дата</th><th class="admin-only">Действия</th>
+                  </tr>
+                </thead>
+                <tbody id="productsTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="salePage" class="page">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">Операция</p>
+              <h1>Оформить продажу</h1>
+            </div>
+          </div>
+
+          <form id="saleForm" class="panel sale-layout">
+            <label>
+              Товар
+              <select id="saleProduct" required></select>
+            </label>
+            <label>
+              Количество
+              <input id="saleQuantity" type="number" min="1" step="1" value="1" required />
+            </label>
+            <div class="sale-total">
+              <span>Итоговая сумма</span>
+              <strong id="saleTotal">0</strong>
+            </div>
+            <button class="primary-btn" type="submit">Подтвердить продажу</button>
+          </form>
+        </section>
+
+        <section id="reportsPage" class="page">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">Аналитика</p>
+              <h1>Отчеты по продажам</h1>
+            </div>
+            <button id="downloadSalesReportBtn" class="primary-btn" type="button">Скачать Excel</button>
+          </div>
+
+          <div class="panel filters">
+            <label>Дата от<input id="reportDateFrom" type="date" /></label>
+            <label>Дата до<input id="reportDateTo" type="date" /></label>
+            <label>Продавец<select id="reportSeller"></select></label>
+            <label>Товар<select id="reportProduct"></select></label>
+            <label>Бренд<select id="reportBrand"></select></label>
+          </div>
+
+          <section class="stats-grid">
+            <article class="stat"><span>Сумма продаж</span><strong id="reportTotalRevenue">0</strong></article>
+            <article class="stat"><span>Продано товаров</span><strong id="reportSoldItems">0</strong></article>
+            <article class="stat"><span>Количество продаж</span><strong id="reportSalesCount">0</strong></article>
+            <article class="stat"><span>Продавцов</span><strong id="reportSellerCount">0</strong></article>
+          </section>
+
+          <section class="workspace">
+            <div class="panel">
+              <h2>Продажи</h2>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID продажи</th><th>Дата продажи</th><th>Название товара</th><th>Бренд</th>
+                      <th>Количество</th><th>Цена за единицу</th><th>Общая сумма</th><th>Продавец</th>
+                    </tr>
+                  </thead>
+                  <tbody id="reportsTable"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="panel">
+              <h2>По продавцам</h2>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Продавец</th><th>Кол-во</th><th>Сумма</th></tr></thead>
+                  <tbody id="sellerSummaryTable"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section id="stockPage" class="page">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">Склад</p>
+              <h1>Остатки</h1>
+            </div>
+            <button id="downloadStockReportBtn" class="primary-btn" type="button">Скачать Excel</button>
+          </div>
+
+          <div class="panel">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Название</th><th>Бренд</th><th>Объем</th><th>Количество</th><th>Цена продажи</th><th>Стоимость остатков</th><th class="admin-only">Склад</th></tr>
+                </thead>
+                <tbody id="stockTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="usersPage" class="page">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">Администрирование</p>
+              <h1>Пользователи</h1>
+            </div>
+          </div>
+
+          <form id="userForm" class="panel form-grid">
+            <input id="userId" type="hidden" />
+            <label>Имя<input id="userName" type="text" required /></label>
+            <label>Логин<input id="userLogin" type="text" required /></label>
+            <label>Пароль<input id="userPassword" type="text" required /></label>
+            <label>
+              Роль
+              <select id="userRole">
+                <option value="Seller">Seller</option>
+                <option value="Admin">Admin</option>
+                <option value="Supervisor">Supervisor</option>
+              </select>
+            </label>
+            <label>
+              Статус
+              <select id="userBlocked">
+                <option value="false">Активен</option>
+                <option value="true">Заблокирован</option>
+              </select>
+            </label>
+            <div class="form-actions">
+              <button class="primary-btn" type="submit">Сохранить пользователя</button>
+              <button id="resetUserFormBtn" class="ghost-btn" type="button">Очистить</button>
+            </div>
+          </form>
+
+          <div class="panel">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Имя</th><th>Логин</th><th>Роль</th><th>Статус</th><th>Действия</th></tr></thead>
+                <tbody id="usersTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
