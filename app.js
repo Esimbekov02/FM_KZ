@@ -36,11 +36,11 @@ const seedUsers = [
 ];
 
 const seedProducts = [
-  productSeed("PR-900", "Pure Royal 900", "FM World", "Женский аромат", 50, 20, 38, 12),
-  productSeed("FM-199", "Federico Mahora 199", "FM World", "Мужской аромат", 50, 18, 34, 8),
-  productSeed("UT-RBY", "Utique Ruby", "Utique", "Унисекс", 100, 34, 55, 5),
-  productSeed("FM-366", "Federico Mahora 366", "FM World", "Женский аромат", 50, 17, 32, 2),
-  productSeed("UT-AMB", "Utique Ambergris", "Utique", "Мужской аромат", 100, 39, 64, 1),
+  productSeed("PR-900", "Pure Royal 900", "FM World", "Женский аромат", 50, 20, 38, 8, 4),
+  productSeed("FM-199", "Federico Mahora 199", "FM World", "Мужской аромат", 50, 18, 34, 5, 3),
+  productSeed("UT-RBY", "Utique Ruby", "Utique", "Унисекс", 100, 34, 55, 3, 2),
+  productSeed("FM-366", "Federico Mahora 366", "FM World", "Женский аромат", 50, 17, 32, 1, 1),
+  productSeed("UT-AMB", "Utique Ambergris", "Utique", "Мужской аромат", 100, 39, 64, 1, 0),
 ];
 
 let users = load(KEYS.users, seedUsers);
@@ -57,7 +57,7 @@ const money = new Intl.NumberFormat("ru-RU", {
   maximumFractionDigits: 2,
 });
 
-function productSeed(id, name, brand, category, volume, purchasePrice, salePrice, stock) {
+function productSeed(id, name, brand, category, volume, purchasePrice, salePrice, showroomStock, officeStock) {
   return {
     id,
     name,
@@ -66,10 +66,25 @@ function productSeed(id, name, brand, category, volume, purchasePrice, salePrice
     volume,
     purchasePrice,
     salePrice,
-    stock,
+    showroomStock,
+    officeStock,
     addedAt: new Date().toISOString(),
   };
 }
+
+function normalizeProduct(product) {
+  if (product.showroomStock !== undefined && product.officeStock !== undefined) {
+    return product;
+  }
+
+  return {
+    ...product,
+    showroomStock: Number(product.stock || 0),
+    officeStock: 0,
+  };
+}
+
+products = products.map(normalizeProduct);
 
 function load(key, fallback) {
   const saved = localStorage.getItem(key);
@@ -102,6 +117,18 @@ function readToken() {
 
 function can(action) {
   return Boolean(currentUser && permissions[currentUser.role]?.[action]);
+}
+
+function totalStock(product) {
+  return Number(product.showroomStock || 0) + Number(product.officeStock || 0);
+}
+
+function warehouseLabel(value) {
+  return value === "office" ? "Office" : "Showroom";
+}
+
+function warehouseStock(product, warehouse) {
+  return warehouse === "office" ? product.officeStock : product.showroomStock;
 }
 
 function showToast(message) {
@@ -172,12 +199,13 @@ function renderAll() {
 
 function renderDashboard() {
   const todaySales = sales.filter((sale) => sale.soldAt.slice(0, 10) === todayIso());
-  const lowStock = products.filter((product) => product.stock <= 3);
+  const lowStock = products.filter((product) => totalStock(product) <= 3);
 
   $("#todayRevenue").textContent = money.format(sum(todaySales, "total"));
   $("#todaySalesCount").textContent = `${todaySales.length} продаж`;
   $("#totalProducts").textContent = products.length;
-  $("#totalStock").textContent = products.reduce((total, product) => total + product.stock, 0);
+  $("#showroomStock").textContent = products.reduce((total, product) => total + product.showroomStock, 0);
+  $("#officeStock").textContent = products.reduce((total, product) => total + product.officeStock, 0);
   $("#todaySold").textContent = todaySales.reduce((total, sale) => total + sale.quantity, 0);
   $("#lowStockCount").textContent = lowStock.length;
 
@@ -189,19 +217,21 @@ function renderDashboard() {
               <td>${product.id}</td>
               <td><span class="product-name">${escapeHtml(product.name)}</span></td>
               <td>${escapeHtml(product.brand)}</td>
-              <td class="low-stock">${product.stock}</td>
+              <td class="${product.showroomStock <= 3 ? "low-stock" : ""}">${product.showroomStock}</td>
+              <td class="${product.officeStock <= 3 ? "low-stock" : ""}">${product.officeStock}</td>
+              <td class="low-stock">${totalStock(product)}</td>
               <td>${money.format(product.salePrice)}</td>
             </tr>
           `,
         )
         .join("")
-    : emptyRow(5, "Товаров с низким остатком нет");
+    : emptyRow(7, "Товаров с низким остатком нет");
 }
 
 function renderProducts() {
   $("#productsTable").innerHTML = products.length
     ? products.map(productRow).join("")
-    : emptyRow(can("manageProducts") ? 10 : 9, "Пока нет товаров");
+    : emptyRow(can("manageProducts") ? 12 : 11, "Пока нет товаров");
 }
 
 function productRow(product) {
@@ -222,7 +252,9 @@ function productRow(product) {
       <td>${product.volume} мл</td>
       <td>${money.format(product.purchasePrice)}</td>
       <td>${money.format(product.salePrice)}</td>
-      <td class="${product.stock <= 3 ? "low-stock" : ""}">${product.stock}</td>
+      <td class="${product.showroomStock <= 3 ? "low-stock" : ""}">${product.showroomStock}</td>
+      <td class="${product.officeStock <= 3 ? "low-stock" : ""}">${product.officeStock}</td>
+      <td class="${totalStock(product) <= 3 ? "low-stock" : ""}">${totalStock(product)}</td>
       <td>${formatDateTime(product.addedAt)}</td>
       ${actions}
     </tr>
@@ -230,10 +262,13 @@ function productRow(product) {
 }
 
 function renderSaleForm() {
-  const available = products.filter((product) => product.stock > 0);
+  const available = products.filter((product) => totalStock(product) > 0);
   $("#saleProduct").innerHTML = available.length
     ? available
-        .map((product) => `<option value="${product.id}">${escapeHtml(product.name)} · ${product.stock} шт.</option>`)
+        .map(
+          (product) =>
+            `<option value="${product.id}">${escapeHtml(product.name)} · Showroom ${product.showroomStock} / Office ${product.officeStock}</option>`,
+        )
         .join("")
     : `<option value="">Нет товара на складе</option>`;
   $("#saleProduct").disabled = !available.length;
@@ -289,6 +324,7 @@ function renderReports() {
               <td>${formatDateTime(sale.soldAt)}</td>
               <td>${escapeHtml(sale.productName)}</td>
               <td>${escapeHtml(sale.brand)}</td>
+              <td>${warehouseLabel(sale.warehouse)}</td>
               <td>${sale.quantity}</td>
               <td>${money.format(sale.unitPrice)}</td>
               <td>${money.format(sale.total)}</td>
@@ -297,7 +333,7 @@ function renderReports() {
           `,
         )
         .join("")
-    : emptyRow(8, "Продажи не найдены");
+    : emptyRow(9, "Продажи не найдены");
 
   const bySeller = new Map();
   data.forEach((sale) => {
@@ -319,22 +355,27 @@ function renderStock() {
     ? products
         .map((product) => {
           const controls = can("manageStock")
-            ? `<td><button class="mini-btn" type="button" data-stock-down="${product.id}">-</button><button class="mini-btn add" type="button" data-stock-up="${product.id}">+</button></td>`
+            ? `
+              <td><button class="mini-btn" type="button" data-stock-down="showroom:${product.id}">-</button><button class="mini-btn add" type="button" data-stock-up="showroom:${product.id}">+</button></td>
+              <td><button class="mini-btn" type="button" data-stock-down="office:${product.id}">-</button><button class="mini-btn add" type="button" data-stock-up="office:${product.id}">+</button></td>
+            `
             : "";
           return `
             <tr>
               <td><span class="product-name">${escapeHtml(product.name)}</span></td>
               <td>${escapeHtml(product.brand)}</td>
               <td>${product.volume} мл</td>
-              <td class="${product.stock <= 3 ? "low-stock" : ""}">${product.stock}</td>
+              <td class="${product.showroomStock <= 3 ? "low-stock" : ""}">${product.showroomStock}</td>
+              <td class="${product.officeStock <= 3 ? "low-stock" : ""}">${product.officeStock}</td>
+              <td class="${totalStock(product) <= 3 ? "low-stock" : ""}">${totalStock(product)}</td>
               <td>${money.format(product.salePrice)}</td>
-              <td>${money.format(product.salePrice * product.stock)}</td>
+              <td>${money.format(product.salePrice * totalStock(product))}</td>
               ${controls}
             </tr>
           `;
         })
         .join("")
-    : emptyRow(can("manageStock") ? 7 : 6, "Остатков нет");
+    : emptyRow(can("manageStock") ? 10 : 8, "Остатков нет");
 }
 
 function renderUsers() {
@@ -463,7 +504,8 @@ $("#productForm").addEventListener("submit", (event) => {
     volume: Number($("#productVolume").value),
     purchasePrice: Number($("#productPurchasePrice").value),
     salePrice: Number($("#productSalePrice").value),
-    stock: Number($("#productStock").value),
+    showroomStock: Number($("#productShowroomStock").value),
+    officeStock: Number($("#productOfficeStock").value),
     addedAt: products.find((item) => item.id === id)?.addedAt || new Date().toISOString(),
   };
 
@@ -489,7 +531,8 @@ $("#productsTable").addEventListener("click", (event) => {
     $("#productVolume").value = product.volume;
     $("#productPurchasePrice").value = product.purchasePrice;
     $("#productSalePrice").value = product.salePrice;
-    $("#productStock").value = product.stock;
+    $("#productShowroomStock").value = product.showroomStock;
+    $("#productOfficeStock").value = product.officeStock;
     $("#productForm").classList.remove("hidden");
   }
 
@@ -502,28 +545,36 @@ $("#productsTable").addEventListener("click", (event) => {
 
 $("#saleProduct").addEventListener("change", updateSaleTotal);
 $("#saleQuantity").addEventListener("input", updateSaleTotal);
+$("#saleWarehouse").addEventListener("change", updateSaleTotal);
 
 $("#saleForm").addEventListener("submit", (event) => {
   event.preventDefault();
   const product = products.find((item) => item.id === $("#saleProduct").value);
   const quantity = Number($("#saleQuantity").value);
+  const warehouse = $("#saleWarehouse").value;
 
   if (!product) {
     showToast("Выберите товар");
     return;
   }
 
-  if (quantity > product.stock) {
-    showToast(`Недостаточно товара. Остаток: ${product.stock}`);
+  if (quantity > warehouseStock(product, warehouse)) {
+    showToast(`Недостаточно товара в ${warehouseLabel(warehouse)}. Остаток: ${warehouseStock(product, warehouse)}`);
     return;
   }
 
-  product.stock -= quantity;
+  if (warehouse === "office") {
+    product.officeStock -= quantity;
+  } else {
+    product.showroomStock -= quantity;
+  }
+
   sales.push({
     id: `S-${String(Date.now()).slice(-7)}`,
     productId: product.id,
     productName: product.name,
     brand: product.brand,
+    warehouse,
     quantity,
     unitPrice: product.salePrice,
     total: product.salePrice * quantity,
@@ -544,12 +595,13 @@ $("#saleForm").addEventListener("submit", (event) => {
 $("#downloadSalesReportBtn").addEventListener("click", () => {
   if (!can("download")) return;
   const rows = [
-    ["ID продажи", "Дата продажи", "Название товара", "Бренд", "Количество", "Цена за единицу", "Общая сумма", "Продавец"],
+    ["ID продажи", "Дата продажи", "Название товара", "Бренд", "Склад", "Количество", "Цена за единицу", "Общая сумма", "Продавец"],
     ...filteredSales().map((sale) => [
       sale.id,
       formatDateTime(sale.soldAt),
       sale.productName,
       sale.brand,
+      warehouseLabel(sale.warehouse),
       sale.quantity,
       sale.unitPrice,
       sale.total,
@@ -561,14 +613,16 @@ $("#downloadSalesReportBtn").addEventListener("click", () => {
 
 $("#downloadStockReportBtn").addEventListener("click", () => {
   const rows = [
-    ["Название товара", "Бренд", "Объем", "Количество на складе", "Цена продажи", "Общая стоимость остатков"],
+    ["Название товара", "Бренд", "Объем", "Showroom", "Office", "Итого", "Цена продажи", "Общая стоимость остатков"],
     ...products.map((product) => [
       product.name,
       product.brand,
       `${product.volume} мл`,
-      product.stock,
+      product.showroomStock,
+      product.officeStock,
+      totalStock(product),
       product.salePrice,
-      product.salePrice * product.stock,
+      product.salePrice * totalStock(product),
     ]),
   ];
   exportExcel(`fm-world-stock-${todayIso()}.xls`, rows);
@@ -576,13 +630,15 @@ $("#downloadStockReportBtn").addEventListener("click", () => {
 
 $("#stockTable").addEventListener("click", (event) => {
   if (!can("manageStock")) return;
-  const upId = event.target.dataset.stockUp;
-  const downId = event.target.dataset.stockDown;
-  const product = products.find((item) => item.id === (upId || downId));
+  const upValue = event.target.dataset.stockUp;
+  const downValue = event.target.dataset.stockDown;
+  const [warehouse, productId] = (upValue || downValue || "").split(":");
+  const product = products.find((item) => item.id === productId);
   if (!product) return;
 
-  product.stock = upId ? product.stock + 1 : Math.max(0, product.stock - 1);
-  showToast("Остаток обновлен");
+  const field = warehouse === "office" ? "officeStock" : "showroomStock";
+  product[field] = upValue ? product[field] + 1 : Math.max(0, product[field] - 1);
+  showToast(`Остаток ${warehouseLabel(warehouse)} обновлен`);
   renderAll();
 });
 

@@ -23,8 +23,8 @@ body {
   font-family: Inter, "Segoe UI", Arial, sans-serif;
   color: var(--ink);
   background:
-    linear-gradient(rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.94)),
-    url("https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&w=1800&q=80")
+    linear-gradient(rgba(255, 246, 243, 0.72), rgba(255, 255, 255, 0.94)),
+    url("assets/fm-background.jpeg")
       center / cover fixed;
 }
 
@@ -168,9 +168,9 @@ select {
   padding: 44px;
   color: #fff;
   background:
-    linear-gradient(90deg, rgba(13, 68, 63, 0.88), rgba(49, 91, 143, 0.54)),
-    url("https://images.unsplash.com/photo-1595425964071-2c1ec11b32f6?auto=format&fit=crop&w=1600&q=80")
-      center / cover;
+    linear-gradient(90deg, rgba(31, 41, 51, 0.82), rgba(184, 50, 93, 0.22)),
+    url("assets/fm-background.jpeg")
+      center 42% / cover;
   border-radius: 8px;
   box-shadow: var(--shadow);
 }
@@ -316,7 +316,7 @@ h2 {
 
 .sale-layout {
   max-width: 760px;
-  grid-template-columns: 1.4fr 160px 200px;
+  grid-template-columns: 1.4fr 130px 150px 200px;
   align-items: end;
 }
 
