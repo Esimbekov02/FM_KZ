@@ -8,6 +8,7 @@ const KEYS = {
 
 const permissions = {
   Seller: {
+    createProducts: true,
     manageProducts: false,
     manageStock: false,
     reports: false,
@@ -15,6 +16,7 @@ const permissions = {
     download: false,
   },
   Admin: {
+    createProducts: true,
     manageProducts: true,
     manageStock: true,
     reports: true,
@@ -22,6 +24,7 @@ const permissions = {
     download: true,
   },
   Supervisor: {
+    createProducts: true,
     manageProducts: true,
     manageStock: true,
     reports: true,
@@ -508,7 +511,8 @@ document.body.addEventListener("click", (event) => {
 });
 
 $("#openProductFormBtn").addEventListener("click", () => {
-  if (!can("manageProducts")) return;
+  if (!can("createProducts")) return;
+  resetProductForm();
   $("#productForm").classList.remove("hidden");
 });
 
@@ -516,10 +520,14 @@ $("#cancelProductFormBtn").addEventListener("click", resetProductForm);
 
 $("#productForm").addEventListener("submit", (event) => {
   event.preventDefault();
-  if (!can("manageProducts")) return;
+  if (!can("createProducts")) return;
 
   const id = $("#productId").value || `P-${String(Date.now()).slice(-6)}`;
   const existingProduct = products.find((item) => item.id === id);
+  if (existingProduct && !can("manageProducts")) {
+    showToast("Нет доступа к редактированию товара");
+    return;
+  }
   const productStock = Number($("#productWarehouseStock").value);
   const product = {
     id,
