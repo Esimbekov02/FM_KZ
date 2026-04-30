@@ -9,6 +9,7 @@ const KEYS = {
 const permissions = {
   Seller: {
     createProducts: true,
+    clearData: false,
     manageProducts: false,
     manageStock: false,
     reports: false,
@@ -17,6 +18,7 @@ const permissions = {
   },
   Admin: {
     createProducts: true,
+    clearData: true,
     manageProducts: true,
     manageStock: true,
     reports: true,
@@ -25,6 +27,7 @@ const permissions = {
   },
   Supervisor: {
     createProducts: true,
+    clearData: false,
     manageProducts: true,
     manageStock: true,
     reports: true,
@@ -237,6 +240,9 @@ function applyAccess() {
   $$(".admin-only").forEach((element) => {
     element.classList.toggle("hidden", !can("manageProducts") && !can("manageStock"));
   });
+  $$(".admin-cleanup").forEach((element) => {
+    element.classList.toggle("hidden", !can("clearData"));
+  });
   $("#productForm").classList.add("hidden");
 }
 
@@ -416,11 +422,12 @@ function renderReports() {
               <td>${formatPrice(sale.unitPrice)}</td>
               <td>${money.format(sale.total)}</td>
               <td>${escapeHtml(sale.sellerName)}</td>
+              ${can("clearData") ? `<td><button class="danger-btn" type="button" data-delete-sale="${sale.id}">Удалить</button></td>` : ""}
             </tr>
           `,
         )
         .join("")
-    : emptyRow(9, "Продажи не найдены");
+    : emptyRow(can("clearData") ? 10 : 9, "Продажи не найдены");
 
   const bySeller = new Map();
   data.forEach((sale) => {
@@ -775,6 +782,57 @@ $("#confirmSaleBtn").addEventListener("click", () => {
   saleCart = [];
   $("#saleQuantity").value = 1;
   showToast("Продажа оформлена");
+  renderAll();
+});
+
+$("#reportsTable").addEventListener("click", (event) => {
+  const saleId = event.target.dataset.deleteSale;
+  if (!saleId || !can("clearData")) return;
+
+  const sale = sales.find((item) => item.id === saleId);
+  if (sale) {
+    const product = products.find((item) => item.id === sale.productId);
+    if (product) {
+      const field = sale.warehouse === "office" ? "officeStock" : "showroomStock";
+      const flag = sale.warehouse === "office" ? "officeActive" : "showroomActive";
+      product[field] += sale.quantity;
+      product[flag] = true;
+    }
+  }
+
+  sales = sales.filter((item) => item.id !== saleId);
+  showToast("Продажа удалена, остаток возвращен");
+  renderAll();
+});
+
+$("#clearSalesBtn").addEventListener("click", () => {
+  if (!can("clearData")) return;
+  if (!confirm("Удалить все продажи и вернуть товары на склад?")) return;
+
+  sales.forEach((sale) => {
+    const product = products.find((item) => item.id === sale.productId);
+    if (!product) return;
+
+    const field = sale.warehouse === "office" ? "officeStock" : "showroomStock";
+    const flag = sale.warehouse === "office" ? "officeActive" : "showroomActive";
+    product[field] += sale.quantity;
+    product[flag] = true;
+  });
+
+  sales = [];
+  saleCart = [];
+  showToast("Все продажи очищены");
+  renderAll();
+});
+
+$("#resetDemoDataBtn").addEventListener("click", () => {
+  if (!can("clearData")) return;
+  if (!confirm("Сбросить товары, продажи и текущий чек к исходным данным?")) return;
+
+  products = mergeImportedProducts(seedProducts.map((product) => normalizeProduct({ ...product })));
+  sales = [];
+  saleCart = [];
+  showToast("Тестовые данные сброшены");
   renderAll();
 });
 

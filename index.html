@@ -200,7 +200,11 @@
               <p class="eyebrow">Аналитика</p>
               <h1>Отчеты по продажам</h1>
             </div>
-            <button id="downloadSalesReportBtn" class="primary-btn" type="button">Скачать Excel</button>
+            <div class="heading-actions">
+              <button id="downloadSalesReportBtn" class="primary-btn" type="button">Скачать Excel</button>
+              <button id="clearSalesBtn" class="danger-btn admin-cleanup" type="button">Очистить продажи</button>
+              <button id="resetDemoDataBtn" class="ghost-btn admin-cleanup" type="button">Сбросить тестовые данные</button>
+            </div>
           </div>
 
           <div class="panel filters">
@@ -226,7 +230,7 @@
                   <thead>
                     <tr>
                       <th>ID продажи</th><th>Дата продажи</th><th>Название товара</th><th>Бренд</th><th>Склад</th>
-                      <th>Количество</th><th>Цена за единицу</th><th>Общая сумма</th><th>Продавец</th>
+                      <th>Количество</th><th>Цена за единицу</th><th>Общая сумма</th><th>Продавец</th><th class="admin-cleanup">Действия</th>
                     </tr>
                   </thead>
                   <tbody id="reportsTable"></tbody>
