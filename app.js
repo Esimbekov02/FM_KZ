@@ -39,7 +39,7 @@ const seedUsers = [
   { id: "U-003", name: "Продавец", login: "seller", password: "seller123", role: "Seller", blocked: false },
 ];
 
-const seedProducts = [
+const seedProducts = window.FM_WORLD_IMPORTED_PRODUCTS || [
   productSeed("PR-900", "Pure Royal 900", "FM World", "Женский аромат", 50, 18000, 8, 4),
   productSeed("FM-199", "Federico Mahora 199", "FM World", "Мужской аромат", 50, 16500, 5, 3),
   productSeed("UT-RBY", "Utique Ruby", "Utique", "Унисекс", 100, 26000, 3, 2),
@@ -78,18 +78,37 @@ function productSeed(id, name, brand, category, volume, salePrice, showroomStock
 }
 
 function normalizeProduct(product) {
-  if (product.showroomStock !== undefined && product.officeStock !== undefined) {
-    return product;
-  }
-
-  return {
+  const normalized = {
     ...product,
-    showroomStock: Number(product.stock || 0),
-    officeStock: 0,
+    showroomStock: Number(product.showroomStock ?? product.stock ?? 0),
+    officeStock: Number(product.officeStock ?? 0),
+    brand: product.brand ?? "",
+    category: product.category ?? "",
+    volume: product.volume ?? "",
+    salePrice: product.salePrice ?? "",
   };
+
+  normalized.showroomActive = product.showroomActive ?? normalized.showroomStock > 0;
+  normalized.officeActive = product.officeActive ?? normalized.officeStock > 0;
+  return normalized;
+}
+
+function mergeImportedProducts(currentProducts) {
+  const importedProducts = window.FM_WORLD_IMPORTED_PRODUCTS || [];
+  if (!importedProducts.length) return currentProducts;
+
+  const byId = new Map(currentProducts.map((product) => [product.id, product]));
+  importedProducts.forEach((product) => {
+    if (!byId.has(product.id)) {
+      byId.set(product.id, normalizeProduct({ ...product, showroomActive: true, officeActive: true }));
+    }
+  });
+
+  return Array.from(byId.values());
 }
 
 products = products.map(normalizeProduct);
+products = mergeImportedProducts(products);
 
 function load(key, fallback) {
   const saved = localStorage.getItem(key);
@@ -144,6 +163,14 @@ function activeWarehouseField() {
   return activeWarehouse === "office" ? "officeStock" : "showroomStock";
 }
 
+function activeWarehouseFlag() {
+  return activeWarehouse === "office" ? "officeActive" : "showroomActive";
+}
+
+function isActiveInWarehouse(product) {
+  return Boolean(product[activeWarehouseFlag()]);
+}
+
 function cartQuantity(productId) {
   return saleCart
     .filter((item) => item.productId === productId)
@@ -151,7 +178,7 @@ function cartQuantity(productId) {
 }
 
 function warehouseProducts() {
-  return products.filter((product) => activeWarehouseStock(product) > 0);
+  return products.filter(isActiveInWarehouse);
 }
 
 function setActiveWarehouse(warehouse) {
@@ -177,6 +204,12 @@ function formatDateTime(value) {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function formatPrice(value) {
+  if (value === "" || value === null || value === undefined) return "";
+  const amount = Number(value);
+  return Number.isNaN(amount) ? "" : money.format(amount);
 }
 
 function escapeHtml(value) {
@@ -252,7 +285,7 @@ function renderDashboard() {
               <td><span class="product-name">${escapeHtml(product.name)}</span></td>
               <td>${escapeHtml(product.brand)}</td>
               <td class="low-stock">${activeWarehouseStock(product)}</td>
-              <td>${money.format(product.salePrice)}</td>
+              <td>${formatPrice(product.salePrice)}</td>
             </tr>
           `,
         )
@@ -265,7 +298,7 @@ function renderProducts() {
 
   $("#productsTable").innerHTML = currentProducts.length
     ? currentProducts.map(productRow).join("")
-    : emptyRow(can("manageProducts") ? 10 : 9, "Пока нет товаров");
+    : emptyRow(can("manageProducts") ? 9 : 8, "Пока нет товаров");
 }
 
 function productRow(product) {
@@ -283,8 +316,8 @@ function productRow(product) {
       <td><span class="product-name">${escapeHtml(product.name)}</span></td>
       <td>${escapeHtml(product.brand)}</td>
       <td>${escapeHtml(product.category)}</td>
-      <td>${product.volume} мл</td>
-      <td>${money.format(product.salePrice)}</td>
+      <td>${product.volume ? `${product.volume} мл` : ""}</td>
+      <td>${formatPrice(product.salePrice)}</td>
       <td class="${activeWarehouseStock(product) <= 3 ? "low-stock" : ""}">${activeWarehouseStock(product)}</td>
       <td>${formatDateTime(product.addedAt)}</td>
       ${actions}
@@ -312,7 +345,7 @@ function updateSaleTotal() {
   const product = products.find((item) => item.id === $("#saleProduct").value);
   const quantity = Number($("#saleQuantity").value || 0);
   const cartTotal = saleCart.reduce((total, item) => total + item.total, 0);
-  $("#saleLineTotal").textContent = money.format(product ? product.salePrice * quantity : 0);
+  $("#saleLineTotal").textContent = money.format(product ? Number(product.salePrice || 0) * quantity : 0);
   $("#saleTotal").textContent = money.format(cartTotal);
 }
 
@@ -325,7 +358,7 @@ function renderSaleCart() {
               <td><span class="product-name">${escapeHtml(item.productName)}</span></td>
               <td>${escapeHtml(item.brand)}</td>
               <td>${item.quantity}</td>
-              <td>${money.format(item.unitPrice)}</td>
+              <td>${formatPrice(item.unitPrice)}</td>
               <td>${money.format(item.total)}</td>
               <td><button class="danger-btn" type="button" data-remove-sale-item="${item.productId}">Удалить</button></td>
             </tr>
@@ -380,7 +413,7 @@ function renderReports() {
               <td>${escapeHtml(sale.brand)}</td>
               <td>${warehouseLabel(sale.warehouse)}</td>
               <td>${sale.quantity}</td>
-              <td>${money.format(sale.unitPrice)}</td>
+              <td>${formatPrice(sale.unitPrice)}</td>
               <td>${money.format(sale.total)}</td>
               <td>${escapeHtml(sale.sellerName)}</td>
             </tr>
@@ -417,11 +450,11 @@ function renderStock() {
             <tr>
               <td><span class="product-name">${escapeHtml(product.name)}</span></td>
               <td>${escapeHtml(product.brand)}</td>
-              <td>${product.volume} мл</td>
+              <td>${product.volume ? `${product.volume} мл` : ""}</td>
               <td>${warehouseLabel(activeWarehouse)}</td>
               <td class="${activeWarehouseStock(product) <= 3 ? "low-stock" : ""}">${activeWarehouseStock(product)}</td>
-              <td>${money.format(product.salePrice)}</td>
-              <td>${money.format(product.salePrice * activeWarehouseStock(product))}</td>
+              <td>${formatPrice(product.salePrice)}</td>
+              <td>${money.format(Number(product.salePrice || 0) * activeWarehouseStock(product))}</td>
               ${controls}
             </tr>
           `;
@@ -565,10 +598,12 @@ $("#productForm").addEventListener("submit", (event) => {
     name: $("#productName").value.trim(),
     brand: $("#productBrand").value.trim(),
     category: $("#productCategory").value.trim(),
-    volume: Number($("#productVolume").value),
-    salePrice: Number($("#productSalePrice").value),
+    volume: $("#productVolume").value === "" ? "" : Number($("#productVolume").value),
+    salePrice: $("#productSalePrice").value === "" ? "" : Number($("#productSalePrice").value),
     showroomStock: activeWarehouse === "showroom" ? productStock : Number(existingProduct?.showroomStock || 0),
     officeStock: activeWarehouse === "office" ? productStock : Number(existingProduct?.officeStock || 0),
+    showroomActive: activeWarehouse === "showroom" ? true : Boolean(existingProduct?.showroomActive),
+    officeActive: activeWarehouse === "office" ? true : Boolean(existingProduct?.officeActive),
     addedAt: existingProduct?.addedAt || new Date().toISOString(),
   };
 
@@ -601,6 +636,7 @@ $("#productsTable").addEventListener("click", (event) => {
     const product = products.find((item) => item.id === deleteId);
     if (product) {
       product[activeWarehouseField()] = 0;
+      product[activeWarehouseFlag()] = false;
     }
     showToast(`Товар удален из склада ${warehouseLabel(activeWarehouse)}`);
     renderAll();
@@ -637,7 +673,7 @@ function addSaleItem() {
       brand: product.brand,
       quantity,
       unitPrice: product.salePrice,
-      total: product.salePrice * quantity,
+      total: Number(product.salePrice || 0) * quantity,
     });
   }
 
@@ -678,7 +714,7 @@ $("#saleForm").addEventListener("submit", (event) => {
     warehouse,
     quantity,
     unitPrice: product.salePrice,
-    total: product.salePrice * quantity,
+    total: Number(product.salePrice || 0) * quantity,
     sellerId: currentUser.id,
     sellerName: currentUser.name,
     soldAt: new Date().toISOString(),
@@ -773,10 +809,10 @@ $("#downloadStockReportBtn").addEventListener("click", () => {
       warehouseLabel(activeWarehouse),
       product.name,
       product.brand,
-      `${product.volume} мл`,
+      product.volume ? `${product.volume} мл` : "",
       activeWarehouseStock(product),
       product.salePrice,
-      product.salePrice * activeWarehouseStock(product),
+      Number(product.salePrice || 0) * activeWarehouseStock(product),
     ]),
   ];
   exportExcel(`fm-world-${activeWarehouse}-stock-${todayIso()}.xls`, rows);

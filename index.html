@@ -121,10 +121,10 @@
           <form id="productForm" class="panel form-grid hidden">
             <input id="productId" type="hidden" />
             <label>Название товара<input id="productName" type="text" required /></label>
-            <label>Бренд<input id="productBrand" type="text" required /></label>
+            <label>Бренд<input id="productBrand" type="text" /></label>
             <label>Категория<input id="productCategory" type="text" required /></label>
-            <label>Объем, мл<input id="productVolume" type="number" min="1" step="1" required /></label>
-            <label>Цена продажи<input id="productSalePrice" type="number" min="0" step="0.01" required /></label>
+            <label>Объем, мл<input id="productVolume" type="number" min="1" step="1" /></label>
+            <label>Цена продажи<input id="productSalePrice" type="number" min="0" step="1" /></label>
             <label>Количество в выбранном складе<input id="productWarehouseStock" type="number" min="0" step="1" required /></label>
             <div class="form-actions">
               <button class="primary-btn" type="submit">Сохранить</button>
@@ -313,6 +313,7 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="stock-data.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
