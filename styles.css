@@ -312,8 +312,8 @@ h2 {
 }
 
 .sale-layout {
-  max-width: 760px;
-  grid-template-columns: 1.4fr 160px 200px;
+  max-width: 980px;
+  grid-template-columns: 1.4fr 140px 190px 160px;
   align-items: end;
 }
 
@@ -415,6 +415,14 @@ select:focus {
 
 .sale-total strong {
   font-size: 1.35rem;
+}
+
+.compact-total {
+  min-width: 190px;
+}
+
+.sale-confirm-btn {
+  margin-top: 16px;
 }
 
 .table-wrap {

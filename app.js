@@ -52,6 +52,7 @@ let products = load(KEYS.products, seedProducts);
 let sales = load(KEYS.sales, []);
 let currentUser = null;
 let activeWarehouse = localStorage.getItem(KEYS.warehouse) || "showroom";
+let saleCart = [];
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -143,12 +144,19 @@ function activeWarehouseField() {
   return activeWarehouse === "office" ? "officeStock" : "showroomStock";
 }
 
+function cartQuantity(productId) {
+  return saleCart
+    .filter((item) => item.productId === productId)
+    .reduce((total, item) => total + item.quantity, 0);
+}
+
 function warehouseProducts() {
   return products.filter((product) => activeWarehouseStock(product) > 0);
 }
 
 function setActiveWarehouse(warehouse) {
   activeWarehouse = warehouse;
+  saleCart = [];
   localStorage.setItem(KEYS.warehouse, warehouse);
   $("#activeWarehouse").value = warehouse;
   renderAll();
@@ -285,7 +293,7 @@ function productRow(product) {
 }
 
 function renderSaleForm() {
-  const available = products.filter((product) => activeWarehouseStock(product) > 0);
+  const available = products.filter((product) => activeWarehouseStock(product) - cartQuantity(product.id) > 0);
   $("#saleProduct").innerHTML = available.length
     ? available
         .map(
@@ -295,13 +303,36 @@ function renderSaleForm() {
         .join("")
     : `<option value="">Нет товара на складе</option>`;
   $("#saleProduct").disabled = !available.length;
+  $("#addSaleItemBtn").disabled = !available.length;
   updateSaleTotal();
+  renderSaleCart();
 }
 
 function updateSaleTotal() {
   const product = products.find((item) => item.id === $("#saleProduct").value);
   const quantity = Number($("#saleQuantity").value || 0);
-  $("#saleTotal").textContent = money.format(product ? product.salePrice * quantity : 0);
+  const cartTotal = saleCart.reduce((total, item) => total + item.total, 0);
+  $("#saleLineTotal").textContent = money.format(product ? product.salePrice * quantity : 0);
+  $("#saleTotal").textContent = money.format(cartTotal);
+}
+
+function renderSaleCart() {
+  $("#saleCartTable").innerHTML = saleCart.length
+    ? saleCart
+        .map(
+          (item) => `
+            <tr>
+              <td><span class="product-name">${escapeHtml(item.productName)}</span></td>
+              <td>${escapeHtml(item.brand)}</td>
+              <td>${item.quantity}</td>
+              <td>${money.format(item.unitPrice)}</td>
+              <td>${money.format(item.total)}</td>
+              <td><button class="danger-btn" type="button" data-remove-sale-item="${item.productId}">Удалить</button></td>
+            </tr>
+          `,
+        )
+        .join("")
+    : emptyRow(6, "Добавьте товары в чек");
 }
 
 function filteredSales() {
@@ -578,9 +609,47 @@ $("#productsTable").addEventListener("click", (event) => {
 
 $("#saleProduct").addEventListener("change", updateSaleTotal);
 $("#saleQuantity").addEventListener("input", updateSaleTotal);
+$("#addSaleItemBtn").addEventListener("click", addSaleItem);
+
+function addSaleItem() {
+  const product = products.find((item) => item.id === $("#saleProduct").value);
+  const quantity = Number($("#saleQuantity").value);
+
+  if (!product) {
+    showToast("Выберите товар");
+    return;
+  }
+
+  const availableQuantity = activeWarehouseStock(product) - cartQuantity(product.id);
+  if (quantity > availableQuantity) {
+    showToast(`Недостаточно товара в ${warehouseLabel(activeWarehouse)}. Остаток: ${availableQuantity}`);
+    return;
+  }
+
+  const existingItem = saleCart.find((item) => item.productId === product.id);
+  if (existingItem) {
+    existingItem.quantity += quantity;
+    existingItem.total = existingItem.quantity * existingItem.unitPrice;
+  } else {
+    saleCart.push({
+      productId: product.id,
+      productName: product.name,
+      brand: product.brand,
+      quantity,
+      unitPrice: product.salePrice,
+      total: product.salePrice * quantity,
+    });
+  }
+
+  $("#saleQuantity").value = 1;
+  showToast("Товар добавлен в чек");
+  renderAll();
+}
 
 $("#saleForm").addEventListener("submit", (event) => {
   event.preventDefault();
+  addSaleItem();
+  return;
   const product = products.find((item) => item.id === $("#saleProduct").value);
   const quantity = Number($("#saleQuantity").value);
   const warehouse = activeWarehouse;
@@ -615,6 +684,59 @@ $("#saleForm").addEventListener("submit", (event) => {
     soldAt: new Date().toISOString(),
   });
 
+  $("#saleQuantity").value = 1;
+  showToast("Продажа оформлена");
+  renderAll();
+});
+
+$("#saleCartTable").addEventListener("click", (event) => {
+  const productId = event.target.dataset.removeSaleItem;
+  if (!productId) return;
+
+  saleCart = saleCart.filter((item) => item.productId !== productId);
+  showToast("Товар удален из чека");
+  renderAll();
+});
+
+$("#confirmSaleBtn").addEventListener("click", () => {
+  if (!saleCart.length) {
+    showToast("Добавьте товары в чек");
+    return;
+  }
+
+  const warehouse = activeWarehouse;
+  const soldAt = new Date().toISOString();
+  const receiptId = `R-${String(Date.now()).slice(-7)}`;
+
+  for (const item of saleCart) {
+    const product = products.find((productItem) => productItem.id === item.productId);
+    if (!product || item.quantity > warehouseStock(product, warehouse)) {
+      showToast(`Недостаточно товара: ${item.productName}`);
+      return;
+    }
+  }
+
+  saleCart.forEach((item, index) => {
+    const product = products.find((productItem) => productItem.id === item.productId);
+    product[activeWarehouseField()] -= item.quantity;
+
+    sales.push({
+      id: `${receiptId}-${index + 1}`,
+      receiptId,
+      productId: product.id,
+      productName: product.name,
+      brand: product.brand,
+      warehouse,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      total: item.total,
+      sellerId: currentUser.id,
+      sellerName: currentUser.name,
+      soldAt,
+    });
+  });
+
+  saleCart = [];
   $("#saleQuantity").value = 1;
   showToast("Продажа оформлена");
   renderAll();

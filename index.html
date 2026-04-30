@@ -165,11 +165,33 @@
               <input id="saleQuantity" type="number" min="1" step="1" value="1" required />
             </label>
             <div class="sale-total">
-              <span>Итоговая сумма</span>
-              <strong id="saleTotal">0</strong>
+              <span>Сумма позиции</span>
+              <strong id="saleLineTotal">0</strong>
             </div>
-            <button class="primary-btn" type="submit">Подтвердить продажу</button>
+            <button id="addSaleItemBtn" class="ghost-btn" type="button">Добавить в чек</button>
           </form>
+
+          <div class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Чек</p>
+                <h2>Товары в продаже</h2>
+              </div>
+              <div class="sale-total compact-total">
+                <span>Общая сумма</span>
+                <strong id="saleTotal">0</strong>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Товар</th><th>Бренд</th><th>Кол-во</th><th>Цена</th><th>Сумма</th><th></th></tr>
+                </thead>
+                <tbody id="saleCartTable"></tbody>
+              </table>
+            </div>
+            <button id="confirmSaleBtn" class="primary-btn sale-confirm-btn" type="button">Подтвердить продажу</button>
+          </div>
         </section>
 
         <section id="reportsPage" class="page">
