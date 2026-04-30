@@ -140,6 +140,10 @@ function activeWarehouseField() {
   return activeWarehouse === "office" ? "officeStock" : "showroomStock";
 }
 
+function warehouseProducts() {
+  return products.filter((product) => activeWarehouseStock(product) > 0);
+}
+
 function setActiveWarehouse(warehouse) {
   activeWarehouse = warehouse;
   localStorage.setItem(KEYS.warehouse, warehouse);
@@ -216,13 +220,14 @@ function renderAll() {
 
 function renderDashboard() {
   const todaySales = sales.filter((sale) => sale.soldAt.slice(0, 10) === todayIso() && (sale.warehouse || "showroom") === activeWarehouse);
-  const lowStock = products.filter((product) => activeWarehouseStock(product) <= 3);
+  const currentProducts = warehouseProducts();
+  const lowStock = currentProducts.filter((product) => activeWarehouseStock(product) <= 3);
 
   $("#todayRevenue").textContent = money.format(sum(todaySales, "total"));
   $("#todaySalesCount").textContent = `${todaySales.length} продаж`;
-  $("#totalProducts").textContent = products.length;
+  $("#totalProducts").textContent = currentProducts.length;
   $("#activeStockLabel").textContent = `На складе ${warehouseLabel(activeWarehouse)}`;
-  $("#activeStock").textContent = products.reduce((total, product) => total + activeWarehouseStock(product), 0);
+  $("#activeStock").textContent = currentProducts.reduce((total, product) => total + activeWarehouseStock(product), 0);
   $("#activeWarehouseLabel").textContent = warehouseLabel(activeWarehouse);
   $("#todaySold").textContent = todaySales.reduce((total, sale) => total + sale.quantity, 0);
   $("#lowStockCount").textContent = lowStock.length;
@@ -245,8 +250,10 @@ function renderDashboard() {
 }
 
 function renderProducts() {
-  $("#productsTable").innerHTML = products.length
-    ? products.map(productRow).join("")
+  const currentProducts = warehouseProducts();
+
+  $("#productsTable").innerHTML = currentProducts.length
+    ? currentProducts.map(productRow).join("")
     : emptyRow(can("manageProducts") ? 10 : 9, "Пока нет товаров");
 }
 
@@ -364,8 +371,10 @@ function renderReports() {
 }
 
 function renderStock() {
-  $("#stockTable").innerHTML = products.length
-    ? products
+  const currentProducts = warehouseProducts();
+
+  $("#stockTable").innerHTML = currentProducts.length
+    ? currentProducts
         .map((product) => {
           const controls = can("manageStock")
             ? `<td><button class="mini-btn" type="button" data-stock-down="${product.id}">-</button><button class="mini-btn add" type="button" data-stock-up="${product.id}">+</button></td>`
@@ -550,8 +559,11 @@ $("#productsTable").addEventListener("click", (event) => {
   }
 
   if (deleteId && can("manageProducts")) {
-    products = products.filter((item) => item.id !== deleteId);
-    showToast("Товар удален");
+    const product = products.find((item) => item.id === deleteId);
+    if (product) {
+      product[activeWarehouseField()] = 0;
+    }
+    showToast(`Товар удален из склада ${warehouseLabel(activeWarehouse)}`);
     renderAll();
   }
 });
@@ -624,9 +636,10 @@ $("#downloadSalesReportBtn").addEventListener("click", () => {
 });
 
 $("#downloadStockReportBtn").addEventListener("click", () => {
+  const currentProducts = warehouseProducts();
   const rows = [
     ["Склад", "Название товара", "Бренд", "Объем", "Количество", "Цена продажи", "Общая стоимость остатков"],
-    ...products.map((product) => [
+    ...currentProducts.map((product) => [
       warehouseLabel(activeWarehouse),
       product.name,
       product.brand,
