@@ -61,13 +61,6 @@ select {
   font-size: 2rem;
 }
 
-.login-help {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.86rem;
-  line-height: 1.45;
-}
-
 .app-shell {
   display: grid;
   grid-template-columns: 260px 1fr;
